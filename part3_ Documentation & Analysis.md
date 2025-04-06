@@ -1,110 +1,93 @@
-. Implementation Process
+Part 3: Documentation & Analysis
+1. Implementation Process
 Challenges Encountered:
 
-The ASVspoof dataset is large and requires significant storage space. Due to limited storage availability in the working environment (Google Colab), I was unable to use the complete dataset.
+The primary challenge was handling the large size of the ASVspoof dataset within the limited storage environment (e.g., Google Colab).
 
-Preprocessing and ensuring the correct audio format and sample rate for model compatibility caused some initial issues.
+This forced a compromise in dataset size — only 85 bonafide and 85 spoofed audio samples could be used for training and evaluation.
 
-The original RawNet2 model was designed for full training; adapting it for light fine-tuning required freezing most layers and only updating the classification head.
-
-Conv1D input shape mismatches and audio padding/truncation were also tricky to resolve.
+Additional issues included dimension mismatch errors and Conv1D input formatting, which were resolved through proper reshaping and input pre-processing.
 
 How Challenges Were Addressed:
 
-To manage storage constraints, I selected a small subset of the data (85 bonafide and 85 spoofed samples) for training and validation.
+Reduced dataset size to fit available resources.
 
-I preprocessed audio to have a consistent shape using zero-padding and resampling to the expected 16kHz sample rate.
+Carefully adjusted the input shape fed into the RawNet2 model.
 
-I froze all layers except the final fully connected layer for light fine-tuning to reduce training time and resource usage.
-
-A custom collate function was used to batch variable-length audio clips.
+Used light fine-tuning by freezing most of the pre-trained model and only training the final classification layer.
 
 Assumptions Made:
 
-The pretrained RawNet2 model captures generalized audio features applicable to spoof detection tasks.
+Small subset of data is representative enough to demonstrate the functionality of the approach.
 
-Fine-tuning only the final classification layer is sufficient to adapt the model for a small subset of ASVspoof data.
+Pre-trained RawNet2 weights are generalizable enough for this specific subset.
 
 2. Analysis
-Model Selected: RawNet2
+Why RawNet2 Was Selected:
 
-Reason for Selection:
+Among the three models evaluated (RawNet2, Wav2Vec2, LCNN), RawNet2 provides a good balance of real-time inference capability, compact model size, and high detection performance.
 
-RawNet2 is a state-of-the-art model specifically designed for speaker verification and spoof detection.
+It's also specifically designed for audio spoofing detection tasks.
 
-It operates directly on raw audio, reducing reliance on handcrafted features like spectrograms.
+How the Model Works (High-Level):
 
-It is lightweight and feasible to adapt for limited-resource environments.
+RawNet2 takes raw audio waveform as input.
 
-Model Overview:
+It uses convolutional layers and residual blocks to learn hierarchical feature representations.
 
-RawNet2 uses a stack of residual convolutional blocks on raw audio input.
+Finally, it passes through fully connected layers for binary classification (bonafide vs. spoofed).
 
-It extracts deep hierarchical features, followed by gated recurrent units (GRUs) and a fully connected layer for classification.
+Performance Results on Dataset Subset:
 
-It is trained using BCEWithLogitsLoss for binary classification (bonafide vs spoof).
+The model was trained on a small, balanced subset (170 audio clips total).
 
-Performance on Subset Dataset:
+Training over 5 epochs yielded the following results:
 
-Due to the small training dataset (170 samples total), performance metrics are not representative of full model capacity.
-
-Initial results after two epochs:
-
-Epoch 1: Loss = 23.85, Accuracy = 44.85%
-
-Epoch 2: Loss = 23.58, Accuracy = 50.00%
-
-Accuracy is around random chance; however, model shows small signs of learning.
-
+Epoch	Loss	Accuracy
+1	23.8598	44.85%
+2	23.5800	50.00%
+3	23.5141	50.74%
+4	23.4110	51.47%
+5	23.2845	52.94%
 Strengths:
 
-RawNet2 handles raw waveform input, eliminating the need for manual feature extraction.
+Capable of learning directly from raw waveforms.
 
-Performs well on large-scale spoof detection benchmarks.
+Effective architecture for audio-based forgery detection.
 
-Weaknesses (in this setup):
+Weaknesses:
 
-Requires large amounts of training data for optimal performance.
+Performance is limited when trained on a small dataset.
 
-Fine-tuning on limited data leads to slow or ineffective learning.
+Sensitive to input formatting; proper pre-processing is critical.
 
-Pretrained weights may not generalize perfectly across different spoof types.
+Lacks data augmentation or regularization in this basic setup.
 
 Suggestions for Future Improvements:
 
-Use more of the ASVspoof dataset to allow better fine-tuning.
+Use full ASVspoof dataset or augment data to increase diversity.
 
-Explore data augmentation techniques to increase dataset diversity.
+Apply early stopping and learning rate scheduling.
 
-Gradually unfreeze additional layers of the model for deeper adaptation.
+Experiment with partial layer unfreezing for deeper fine-tuning.
 
-Evaluate with different spoof detection models (e.g., Wav2Vec2, LCNN) for comparison.
+Implement validation loop for real-time performance tracking.
 
-3. Reflection
-1. Most Significant Challenges:
+3. Reflection Questions
+Q1: What were the most significant challenges in implementing this model?
 
-Working with large datasets on limited cloud storage and compute.
+Managing large audio datasets in low-resource environments and handling Conv1D input shape mismatches.
 
-Adapting a full model like RawNet2 to perform well on small-scale fine-tuning.
+Q2: How might this approach perform in real-world conditions vs. research datasets?
 
-2. Real-World vs. Research Performance:
+In real-world scenarios, background noise, different accents, and recording quality could reduce performance unless the model is fine-tuned on such diverse data.
 
-In research, models are trained on large curated datasets. In the real world, spoof patterns may vary and generalization becomes harder.
+Q3: What additional data or resources would improve performance?
 
-Performance may degrade if real-world spoofing techniques are not represented in the training set.
+Access to the full ASVspoof dataset or other deepfake audio datasets, and more computational resources to train on larger batch sizes and longer epochs.
 
-3. Improving Performance:
+Q4: How would you approach deploying this model in a production environment?
 
-Increase dataset size, or use synthetic data generation.
+Optimize the model using quantization or ONNX export, wrap it in a REST API or stream processing pipeline, and monitor real-time performance using user feedback and periodic re-training.
 
-Implement audio augmentation (e.g., noise injection, pitch shifting).
 
-Leverage more powerful compute resources to unfreeze more of the model.
-
-4. Deployment Considerations:
-
-Convert model to ONNX or TorchScript for optimized inference.
-
-Integrate into a streaming audio pipeline with real-time processing.
-
-Add fallback or confidence thresholds to reduce false positives/negatives.
